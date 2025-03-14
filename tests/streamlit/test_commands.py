@@ -26,9 +26,6 @@ STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
 
-# TODO:
-# 3. Check if we need to mock typer
-
 
 class TestStreamlitCommands:
     @pytest.fixture(autouse=True)
