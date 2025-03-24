@@ -295,17 +295,15 @@ def test_rotate(
 
         result = runner.invoke(
             ["auth", "keypair", "rotate", "--format", "JSON", "-c", key_pair],
-            input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
+            input=f"4096\n{tmp_dir}\n\n",
         )
 
         tmp_path = Path(tmp_dir)
-        private_key_path = tmp_path / f"{new_connection}.p8"
-        public_key_path = tmp_path / f"{new_connection}.pub"
+        private_key_path = tmp_path / f"{key_pair}.p8"
+        public_key_path = tmp_path / f"{key_pair}.pub"
         assert result.exit_code == 0, result.output
         assert result.output == dedent(
             f"""\
-            Create a new connection? [Y/n]: Y
-            Enter connection name: {new_connection}
             Enter key length [2048]: 4096
             Enter output path [~/.ssh]: {tmp_path.absolute()}
             Enter private key passphrase []: 
@@ -346,12 +344,12 @@ def test_rotate_with_password(
 
         result = runner.invoke(
             ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
-            input=f"Y\n{new_connection}\n4096\n123\n",
+            input=f"4096\n123\n",
         )
 
         tmp_path = Path(tmp_dir)
-        private_key_path = tmp_path / f"{new_connection}.p8"
-        public_key_path = tmp_path / f"{new_connection}.pub"
+        private_key_path = tmp_path / f"{key_pair}.p8"
+        public_key_path = tmp_path / f"{key_pair}.pub"
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
         assert private_key_path.exists()
@@ -399,34 +397,9 @@ def test_rotate_no_prompts(
                 "-c",
                 key_pair,
             ],
-            input=f"\n{new_connection}\n",
         )
 
         assert result.exit_code == 0, result.output
-        assert result.output == os_agnostic_snapshot
-
-
-@mock.patch(EXECUTE_QUERY)
-@mock.patch(OBJECT_EXECUTE_QUERY)
-@mock.patch(CONNECT)
-def test_rotate_connection_already_exists(
-    mock_connect,
-    mock_object_execute_query,
-    mock_execute_query,
-    runner,
-    mock_cursor,
-    os_agnostic_snapshot,
-):
-    _mock_user_and_public_key_for_rotate(
-        mock_connect, mock_object_execute_query, mock_cursor
-    )
-
-    with TemporaryDirectory() as tmp_dir:
-        result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir], input="\ndefault\n"
-        )
-
-        assert result.exit_code == 1, result.output
         assert result.output == os_agnostic_snapshot
 
 
@@ -454,11 +427,11 @@ def test_rotate_create_output_directory_with_proper_privileges(
 
         result = runner.invoke(
             ["auth", "keypair", "rotate", "--output-path", tmp_path, "-c", key_pair],
-            input=f"Y\n{new_connection}\n4096\n\n",
+            input=f"4096\n\n",
         )
 
-        private_key_path = tmp_path / f"{new_connection}.p8"
-        public_key_path = tmp_path / f"{new_connection}.pub"
+        private_key_path = tmp_path / f"{key_pair}.p8"
+        public_key_path = tmp_path / f"{key_pair}.pub"
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
         assert file_permissions_are_strict(tmp_path)
@@ -493,8 +466,15 @@ def test_rotate_no_public_key_set(
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir],
-            input=f"\n{new_connection}\n",
+            [
+                "auth",
+                "keypair",
+                "rotate",
+                "--output-path",
+                tmp_dir,
+                "-c",
+                new_connection,
+            ],
         )
 
         assert result.exit_code == 1, result.output
@@ -524,12 +504,12 @@ def test_rotate_only_public_key_set(
 
         result = runner.invoke(
             ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
-            input=f"Y\n{new_connection}\n4096\n\n",
+            input=f"4096\n\n",
         )
 
         tmp_path = Path(tmp_dir)
-        private_key_path = tmp_path / f"{new_connection}.p8"
-        public_key_path = tmp_path / f"{new_connection}.pub"
+        private_key_path = tmp_path / f"{key_pair}.p8"
+        public_key_path = tmp_path / f"{key_pair}.pub"
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
         assert private_key_path.exists()
@@ -587,12 +567,12 @@ def test_rotate_other_public_key_set_options(
 
         result = runner.invoke(
             ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
-            input=f"Y\n{new_connection}\n4096\n\n",
+            input=f"4096\n\n",
         )
 
         tmp_path = Path(tmp_dir)
-        private_key_path = tmp_path / f"{new_connection}.p8"
-        public_key_path = tmp_path / f"{new_connection}.pub"
+        private_key_path = tmp_path / f"{key_pair}.p8"
+        public_key_path = tmp_path / f"{key_pair}.pub"
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
         assert private_key_path.exists()
@@ -639,7 +619,7 @@ def test_rotate_overwrite_connection(
                 "-c",
                 new_connection,
             ],
-            input="n\n\n\n",
+            input="\n\n",
         )
 
         tmp_path = Path(tmp_dir)

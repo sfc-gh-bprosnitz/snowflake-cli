@@ -66,21 +66,12 @@ class AuthManager(SqlExecutionMixin):
 
     def rotate(
         self,
-        connection_name: str,
         key_length: int,
         output_path: SecurePath,
         private_key_passphrase: SecretType,
     ):
-        # When the user provide new connection name
-        if connection_name and connection_exists(connection_name):
-            raise ClickException(
-                f"Connection with name {connection_name} already exists."
-            )
-
         cli_context = get_cli_context()
-        # When the use not provide connection name, so we overwrite the current connection
-        if not connection_name:
-            connection_name = cli_context.connection_context.connection_name
+        connection_name = cli_context.connection_context.connection_name
 
         self._ensure_connection_has_private_key(
             cli_context.connection_context.connection_name
