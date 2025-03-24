@@ -71,8 +71,15 @@ class StreamlitTestClass:
         assert self.mock_put.call_count == len(put_files)
 
         for file in put_files:  # This seems repeatable, extract it to a function
+            if isinstance(file, dict):
+                local = file["local"]
+                stage = f"{stage_name}{file['stage']}/{local.name}"
+            else:
+                local = Path(file)
+                stage = f"{stage_name}/{file}"
+
             self.mock_put.assert_any_call(
-                local_file_name=Path(file),
-                stage_location=f"{stage_name}/{file}",
+                local_file_name=local,
+                stage_location=stage,
                 overwrite=True,
             )

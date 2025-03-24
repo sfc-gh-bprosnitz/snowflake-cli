@@ -1,13 +1,11 @@
 import os
 from pathlib import Path
-from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.connection.util import UIParameter
-from snowflake.connector.compat import IS_WINDOWS
 from streamlit.test_class import StreamlitTestClass
 
 BUNDLE_ROOT = Path("output") / "bundle" / "streamlit"
+STREAMLIT_NAME = "test_streamlit"
 
 
 class TestArtifacts(StreamlitTestClass):
@@ -17,9 +15,9 @@ class TestArtifacts(StreamlitTestClass):
             (
                 "src",
                 [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
+                    {"local": Path("src") / "app.py", "stage": "/src"},
                     {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/src/dir",
                     },
                 ],
@@ -27,9 +25,9 @@ class TestArtifacts(StreamlitTestClass):
             (
                 "src/",
                 [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
+                    {"local": Path("src") / "app.py", "stage": "/src"},
                     {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/src/dir",
                     },
                 ],
@@ -37,19 +35,19 @@ class TestArtifacts(StreamlitTestClass):
             (
                 "src/*",
                 [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
+                    {"local": Path("src") / "app.py", "stage": "/src"},
                     {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/src/dir",
                     },
                 ],
             ),
-            ("src/*.py", [{"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"}]),
+            ("src/*.py", [{"local": Path("src") / "app.py", "stage": "/src"}]),
             (
                 "src/dir/dir_app.py",
                 [
                     {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/src/dir",
                     }
                 ],
@@ -57,13 +55,13 @@ class TestArtifacts(StreamlitTestClass):
             (
                 {"src": "src/**/*", "dest": "source/"},
                 [
-                    {"local": BUNDLE_ROOT / "source" / "app.py", "stage": "/source"},
+                    {"local": Path("src") / "app.py", "stage": "/source"},
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source",
                     },
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/dir",
                     },
                 ],
@@ -72,11 +70,11 @@ class TestArtifacts(StreamlitTestClass):
                 {"src": "src", "dest": "source/"},
                 [
                     {
-                        "local": BUNDLE_ROOT / "source" / "src" / "app.py",
+                        "local": Path("src") / "app.py",
                         "stage": "/source/src",
                     },
                     {
-                        "local": BUNDLE_ROOT / "source" / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/src/dir",
                     },
                 ],
@@ -85,11 +83,11 @@ class TestArtifacts(StreamlitTestClass):
                 {"src": "src/", "dest": "source/"},
                 [
                     {
-                        "local": BUNDLE_ROOT / "source" / "src" / "app.py",
+                        "local": Path("src") / "app.py",
                         "stage": "/source/src",
                     },
                     {
-                        "local": BUNDLE_ROOT / "source" / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/src/dir",
                     },
                 ],
@@ -97,9 +95,9 @@ class TestArtifacts(StreamlitTestClass):
             (
                 {"src": "src/*", "dest": "source/"},
                 [
-                    {"local": BUNDLE_ROOT / "source" / "app.py", "stage": "/source"},
+                    {"local": Path("src") / "app.py", "stage": "/source"},
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/dir",
                     },
                 ],
@@ -108,56 +106,32 @@ class TestArtifacts(StreamlitTestClass):
                 {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
                 [
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "apps" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/dir/apps",
                     }
                 ],
             ),
         ],
     )
-    @mock.patch("snowflake.connector.connect")
-    @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.connection.util.get_ui_parameters",
-        return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
-    )
     def test_deploy_with_artifacts(
-        mock_param,
-        mock_sm_put,
-        mock_conn,
-        mock_cursor,
-        runner,
-        mock_ctx,
-        project_directory,
-        alter_snowflake_yml,
+        self,
         artifacts,
         paths,
     ):
-        ctx = mock_ctx(
-            mock_cursor(
-                rows=[
-                    {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                    {"CURRENT_ACCOUNT_NAME()": "my_account"},
-                ],
-                columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
-            )
-        )
-        mock_conn.return_value = ctx
-
         streamlit_files = [
             "streamlit_app.py",
             "pages/my_page.py",
             "environment.yml",
         ]
 
-        with project_directory("glob_patterns") as tmp:
-            alter_snowflake_yml(
+        with self.project_directory("glob_patterns") as tmp:
+            self.alter_snowflake_yml(
                 tmp / "snowflake.yml",
                 "entities.my_streamlit.artifacts",
                 streamlit_files + [artifacts],
             )
 
-            result = runner.invoke(
+            result = self.runner.invoke(
                 [
                     "streamlit",
                     "deploy",
@@ -166,18 +140,9 @@ class TestArtifacts(StreamlitTestClass):
             )
             assert result.exit_code == 0, result.output
 
-            put_calls = _extract_put_calls(mock_sm_put)
-            # Windows needs absolute paths.
-            if IS_WINDOWS:
-                tmp_path = tmp.absolute()
-            else:
-                tmp_path = tmp.resolve()
-            for path in paths:
-                assert {
-                    "local_path": tmp_path / path["local"],
-                    "stage_path": "@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
-                    + path["stage"],
-                } in put_calls
+            self._assert_that_exactly_those_files_were_put_to_stage(
+                streamlit_files + paths
+            )
 
     @pytest.mark.parametrize(
         "artifacts, paths",
@@ -283,380 +248,30 @@ class TestArtifacts(StreamlitTestClass):
             ),
         ],
     )
-    @mock.patch("snowflake.connector.connect")
-    @mock.patch("snowflake.cli._plugins.snowpark.commands.StageManager.put")
-    @mock.patch(
-        "snowflake.cli._plugins.connection.util.get_ui_parameters",
-        return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
-    )
     def test_deploy_with_artifacts_from_other_directory(
-        mock_param,
-        mock_sm_put,
-        mock_conn,
-        mock_cursor,
-        runner,
-        mock_ctx,
-        project_directory,
-        alter_snowflake_yml,
+        self,
         artifacts,
         paths,
     ):
-        ctx = mock_ctx(
-            mock_cursor(
-                rows=[
-                    {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
-                    {"REGIONLESS": "false"},
-                    {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
-                ],
-                columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
-            )
-        )
-        mock_conn.return_value = ctx
-
         streamlit_files = [
             "streamlit_app.py",
             "pages/my_page.py",
             "environment.yml",
         ]
 
-        with project_directory("glob_patterns") as tmp:
+        with self.project_directory("glob_patterns") as tmp:
             os.chdir(Path(os.getcwd()).parent)
-            alter_snowflake_yml(
+            self.alter_snowflake_yml(
                 tmp / "snowflake.yml",
                 "entities.my_streamlit.artifacts",
                 streamlit_files + [artifacts],
             )
 
-            result = runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
+            result = self.runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
             assert result.exit_code == 0, result.output
 
-            put_calls = _extract_put_calls(mock_sm_put)
-            for path in paths:
-                assert {
-                    "local_path": tmp / path["local"],
-                    "stage_path": "@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
-                    + path["stage"],
-                } in put_calls
+            self._assert_that_exactly_those_files_were_put_to_stage(
+                streamlit_files + paths
+            )
 
-        @pytest.mark.parametrize(
-            "artifacts, paths",
-            [
-                (
-                    "src",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/*",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/*.py",
-                    [{"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"}],
-                ),
-                (
-                    "src/dir/dir_app.py",
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        }
-                    ],
-                ),
-                (
-                    {"src": "src/**/*", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir_app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
-                            "stage": "/source/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                            "stage": "/source/src",
-                        },
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "src"
-                            / "dir"
-                            / "dir_app.py",
-                            "stage": "/source/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                            "stage": "/source/src",
-                        },
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "src"
-                            / "dir"
-                            / "dir_app.py",
-                            "stage": "/source/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/*", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
-                            "stage": "/source/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "dir"
-                            / "apps"
-                            / "dir_app.py",
-                            "stage": "/source/dir/apps",
-                        }
-                    ],
-                ),
-            ],
-        )
-        def test_deploy_with_artifacts(
-            self,
-            artifacts,
-            paths,
-        ):
-            streamlit_files = [
-                "streamlit_app.py",
-                "pages/my_page.py",
-                "environment.yml",
-            ]
 
-            with self.project_directory("glob_patterns") as tmp:
-                self.alter_snowflake_yml(
-                    tmp / "snowflake.yml",
-                    "entities.my_streamlit.artifacts",
-                    streamlit_files + [artifacts],
-                )
-
-                result = self.runner.invoke(
-                    [
-                        "streamlit",
-                        "deploy",
-                        "--replace",
-                    ]
-                )
-                assert result.exit_code == 0, result.output
-
-                self._assert_that_exactly_those_files_were_put_to_stage(
-                    streamlit_files + artifacts
-                )
-
-        @pytest.mark.parametrize(
-            "artifacts, paths",
-            [
-                (
-                    "src",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/*",
-                    [
-                        {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    "src/*.py",
-                    [{"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"}],
-                ),
-                (
-                    "src/dir/dir_app.py",
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                            "stage": "/src/dir",
-                        }
-                    ],
-                ),
-                (
-                    {"src": "src/**/*", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir_app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
-                            "stage": "/source/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                            "stage": "/source/src",
-                        },
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "src"
-                            / "dir"
-                            / "dir_app.py",
-                            "stage": "/source/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                            "stage": "/source/src",
-                        },
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "src"
-                            / "dir"
-                            / "dir_app.py",
-                            "stage": "/source/src/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/*", "dest": "source/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT / "source" / "app.py",
-                            "stage": "/source",
-                        },
-                        {
-                            "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
-                            "stage": "/source/dir",
-                        },
-                    ],
-                ),
-                (
-                    {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
-                    [
-                        {
-                            "local": BUNDLE_ROOT
-                            / "source"
-                            / "dir"
-                            / "apps"
-                            / "dir_app.py",
-                            "stage": "/source/dir/apps",
-                        }
-                    ],
-                ),
-            ],
-        )
-        def test_deploy_with_artifacts(
-            self,
-            artifacts,
-            paths,
-        ):
-            streamlit_files = [
-                "streamlit_app.py",
-                "pages/my_page.py",
-                "environment.yml",
-            ]
-
-            with self.project_directory("glob_patterns") as tmp:
-                self.alter_snowflake_yml(
-                    tmp / "snowflake.yml",
-                    "entities.my_streamlit.artifacts",
-                    streamlit_files + [artifacts],
-                )
-
-                result = self.runner.invoke(
-                    [
-                        "streamlit",
-                        "deploy",
-                        "--replace",
-                    ]
-                )
-                assert result.exit_code == 0, result.output
-
-                self._assert_that_exactly_those_files_were_put_to_stage(
-                    streamlit_files + artifacts
-                )
-
-    def _extract_put_calls(mock_sm_put):
-        # Extract the put calls from the mock for better visibility in test logs
-        return [
-            {
-                "local_path": call.kwargs.get("local_path"),
-                "stage_path": call.kwargs.get("stage_path"),
-            }
-            for call in mock_sm_put.mock_calls
-            if call.kwargs.get("local_path")
-        ]
